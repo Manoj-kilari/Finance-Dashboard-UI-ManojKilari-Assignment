@@ -1,0 +1,743 @@
+import React, { useState, useMemo } from 'react';
+import { 
+  Card, 
+  Row, 
+  Col, 
+  Button, 
+  Modal, 
+  Form, 
+  InputGroup, 
+  Dropdown, 
+  Badge, 
+  Pagination,
+  Alert,
+  Spinner
+} from 'react-bootstrap';
+import { Transaction, UserRole, AppFilters, PaginationState } from '../types';
+import { categories, categoryColors, categoryIcons } from '../data/mockData';
+
+interface EnhancedTransactionsSectionProps {
+  transactions: Transaction[];
+  userRole: UserRole;
+  filters: AppFilters;
+  setFilters: (filters: Partial<AppFilters>) => void;
+  addTransaction: (transaction: Transaction) => void;
+  updateTransaction: (id: string, transaction: Transaction) => void;
+  deleteTransaction: (id: string) => void;
+}
+
+const EnhancedTransactionsSection: React.FC<EnhancedTransactionsSectionProps> = ({
+  transactions,
+  userRole,
+  filters,
+  setFilters,
+  addTransaction,
+  updateTransaction,
+  deleteTransaction,
+}) => {
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [amountRange, setAmountRange] = useState<[number, number]>([0, 10000]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [formData, setFormData] = useState({
+    date: '',
+    amount: '',
+    category: '',
+    description: '',
+    type: 'expense' as 'income' | 'expense',
+    notes: '',
+    isRecurring: false,
+    recurringFrequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly',
+  });
+
+  const filteredTransactions = useMemo(() => {
+    let filtered = transactions;
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(transaction =>
+        transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        transaction.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      );
+    }
+
+    // Category filter
+    if (selectedCategory !== 'All') {
+      filtered = filtered.filter(transaction => transaction.category === selectedCategory);
+    }
+
+    // Type filter
+    if (filters.type !== 'all') {
+      filtered = filtered.filter(transaction => transaction.type === filters.type);
+    }
+
+      filtered = filtered.filter(transaction =>
+      );
+    }
+
+    // Amount range filter
+    filtered = filtered.filter(transaction =>
+      transaction.amount >= amountRange[0] && transaction.amount <= amountRange[1]
+    );
+
+    return filtered;
+  }, [transactions, searchTerm, selectedCategory, filters.type, amountRange]);
+
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredTransactions.slice(startIndex, endIndex);
+  }, [filteredTransactions, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+
+  const handleAddTransaction = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const newTransaction: Transaction = {
+        id: Date.now().toString(),
+        date: formData.date,
+        amount: parseFloat(formData.amount),
+        category: formData.category,
+        description: formData.description,
+        type: formData.type,
+        notes: formData.notes,
+        isRecurring: formData.isRecurring,
+        recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined,
+      };
+
+      addTransaction(newTransaction);
+      setShowAddModal(false);
+      resetForm();
+    } catch (err) {
+      setError('Failed to add transaction. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditTransaction = async () => {
+    if (!selectedTransaction) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const updatedTransaction: Transaction = {
+        ...selectedTransaction,
+        date: formData.date,
+        amount: parseFloat(formData.amount),
+        category: formData.category,
+        description: formData.description,
+        type: formData.type,
+        notes: formData.notes,
+        isRecurring: formData.isRecurring,
+        recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined,
+      };
+
+      updateTransaction(selectedTransaction.id, updatedTransaction);
+      setShowEditModal(false);
+      setSelectedTransaction(null);
+      resetForm();
+    } catch (err) {
+      setError('Failed to update transaction. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteTransaction = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this transaction?')) {
+      deleteTransaction(id);
+    }
+  };
+
+  const openEditModal = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setFormData({
+      date: transaction.date,
+      amount: transaction.amount.toString(),
+      category: transaction.category,
+      description: transaction.description,
+      type: transaction.type,
+      notes: transaction.notes || '',
+      isRecurring: transaction.isRecurring || false,
+      recurringFrequency: transaction.recurringFrequency || 'monthly',
+    });
+    setShowEditModal(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      date: '',
+      amount: '',
+      category: '',
+      description: '',
+      type: 'expense',
+      notes: '',
+      isRecurring: false,
+      recurringFrequency: 'monthly',
+    });
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
+    setFormData(prev => ({
+      ...prev,
+    }));
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedCategory('All');
+    setAmountRange([0, 10000]);
+    setFilters({ category: 'All', type: 'all', dateRange: 'all', search: '' });
+  };
+
+  const activeFiltersCount = [
+    searchTerm,
+    selectedCategory !== 'All',
+    filters.type !== 'all',
+    amountRange[0] > 0 || amountRange[1] < 10000
+  ].filter(Boolean).length;
+
+  return (
+    <div className="enhanced-transactions-section">
+      {/* Header */}
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h3 className="mb-0">Transactions</h3>
+        <div className="d-flex gap-2">
+          <Button variant="outline-secondary" onClick={clearFilters} disabled={activeFiltersCount === 0}>
+            <i className="bi bi-funnel me-2"></i>
+            Clear Filters {activeFiltersCount > 0 && <Badge bg="primary" className="ms-1">{activeFiltersCount}</Badge>}
+          </Button>
+          <Button variant="primary" onClick={() => setShowAddModal(true)} disabled={userRole === 'viewer'}>
+            <i className="bi bi-plus-lg me-2"></i>
+            Add Transaction
+          </Button>
+        </div>
+      </div>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="danger" dismissible onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Advanced Filters */}
+      <Card className="mb-4 border-0 shadow-sm">
+        <Card.Header className="bg-light">
+          <h5 className="mb-0">
+            <i className="bi bi-funnel me-2"></i>
+            Advanced Filters
+          </h5>
+        </Card.Header>
+        <Card.Body>
+          <Row>
+            <Col md={4} className="mb-3">
+              <Form.Label>Search</Form.Label>
+              <InputGroup>
+                <Form.Control
+                  type="text"
+                  placeholder="Search transactions..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  aria-label="Search transactions"
+                />
+                <InputGroup.Text>
+                  <i className="bi bi-search"></i>
+                </InputGroup.Text>
+              </InputGroup>
+            </Col>
+            <Col md={2} className="mb-3">
+              <Form.Label>Category</Form.Label>
+              <Form.Select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                aria-label="Filter by category"
+              >
+                {categories.map(category => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </Form.Select>
+            </Col>
+            <Col md={2} className="mb-3">
+              <Form.Label>Type</Form.Label>
+              <Form.Select
+                value={filters.type}
+                onChange={(e) => setFilters({ type: e.target.value })}
+                aria-label="Filter by type"
+              >
+                <option value="all">All</option>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+              </Form.Select>
+            </Col>
+            <Col md={4} className="mb-3">
+              <Form.Label>Amount Range</Form.Label>
+              <div className="d-flex gap-2">
+                <Form.Control
+                  type="number"
+                  placeholder="Min"
+                  value={amountRange[0]}
+                  onChange={(e) => setAmountRange([parseInt(e.target.value) || 0, amountRange[1]])}
+                  aria-label="Minimum amount"
+                />
+                <Form.Control
+                  type="number"
+                  placeholder="Max"
+                  value={amountRange[1]}
+                  onChange={(e) => setAmountRange([amountRange[0], parseInt(e.target.value) || 10000])}
+                  aria-label="Maximum amount"
+                />
+              </div>
+            </Col>
+          </Row>
+        </Card.Body>
+      </Card>
+
+      {/* Results Summary */}
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <span className="text-muted">
+            Showing {paginatedTransactions.length} of {filteredTransactions.length} transactions
+          </span>
+        </div>
+        <div>
+          <Dropdown>
+            <Dropdown.Toggle variant="outline-secondary" size="sm">
+              <i className="bi bi-download me-2"></i>
+              Export
+            </Dropdown.Toggle>
+            <Dropdown.Menu>
+              <Dropdown.Item>Export as CSV</Dropdown.Item>
+              <Dropdown.Item>Export as PDF</Dropdown.Item>
+              <Dropdown.Item>Export as JSON</Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
+        </div>
+      </div>
+
+      {/* Transactions Table */}
+      <Card className="border-0 shadow-sm">
+        <Card.Body className="p-0">
+          <div className="table-responsive">
+            <table className="table table-hover mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th>Date</th>
+                  <th>Category</th>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>Recurring</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-4">
+                      <Spinner animation="border" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                      </Spinner>
+                    </td>
+                  </tr>
+                ) : paginatedTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-4">
+                      <div className="text-muted">
+                        <i className="bi bi-inbox fs-1 d-block mb-2"></i>
+                        No transactions found
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedTransactions.map((transaction) => (
+                    <tr key={transaction.id}>
+                      <td>{transaction.date}</td>
+                      <td>
+                        <div className="d-flex align-items-center">
+                          <i 
+                            className={`${categoryIcons[transaction.category as keyof typeof categoryIcons] || 'bi-tag'} me-2`}
+                            style={{ color: categoryColors[transaction.category as keyof typeof categoryColors] }}
+                          ></i>
+                          {transaction.category}
+                        </div>
+                      </td>
+                      <td>
+                        <div>
+                          <div>{transaction.description}</div>
+                          {transaction.notes && (
+                            <small className="text-muted">{transaction.notes}</small>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`fw-bold ${transaction.type === 'income' ? 'text-success' : 'text-danger'}`}>
+                          {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="d-flex flex-wrap gap-1">
+                            <Badge key={tag} bg="light" text="dark">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </td>
+                      <td>
+                        {transaction.isRecurring ? (
+                          <div className="d-flex flex-column gap-1">
+                            <Badge bg="info" className="recurring-badge">
+                              <i className="bi bi-arrow-repeat me-1"></i>
+                              {transaction.recurringFrequency || 'Recurring'}
+                            </Badge>
+                            {userRole === 'admin' && (
+                              <small className="text-muted admin-recurring-info">
+                                <i className="bi bi-info-circle me-1"></i>
+                                Auto-generated
+                              </small>
+                            )}
+                          </div>
+                        ) : (
+                          userRole === 'admin' && (
+                            <Badge bg="secondary" className="non-recurring-badge">
+                              <i className="bi bi-x-circle me-1"></i>
+                              One-time
+                            </Badge>
+                          )
+                        )}
+                      </td>
+                      <td>
+                        <div className="d-flex gap-1">
+                          <Button
+                            variant="outline-primary"
+                            size="sm"
+                            onClick={() => openEditModal(transaction)}
+                            disabled={userRole === 'viewer'}
+                            aria-label="Edit transaction"
+                            className={userRole === 'admin' ? 'admin-action-btn' : ''}
+                          >
+                            <i className="bi bi-pencil"></i>
+                            {userRole === 'admin' && <span className="ms-1">Edit</span>}
+                          </Button>
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => handleDeleteTransaction(transaction.id)}
+                            disabled={userRole === 'viewer'}
+                            aria-label="Delete transaction"
+                            className={userRole === 'admin' ? 'admin-action-btn' : ''}
+                          >
+                            <i className="bi bi-trash"></i>
+                            {userRole === 'admin' && <span className="ms-1">Delete</span>}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card.Body>
+      </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="d-flex justify-content-center mt-4">
+          <Pagination>
+            <Pagination.Prev
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+            />
+            {[...Array(totalPages)].map((_, index) => (
+              <Pagination.Item
+                key={index + 1}
+                active={currentPage === index + 1}
+                onClick={() => setCurrentPage(index + 1)}
+              >
+                {index + 1}
+              </Pagination.Item>
+            ))}
+            <Pagination.Next
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+            />
+          </Pagination>
+        </div>
+      )}
+
+      {/* Add Transaction Modal */}
+      <Modal show={showAddModal} onHide={() => setShowAddModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Add Transaction</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Date</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                    required
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Amount</Form.Label>
+                  <Form.Control
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={formData.amount}
+                    onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    required
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Type</Form.Label>
+                  <Form.Select
+                    value={formData.type}
+                    onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as 'income' | 'expense' }))}
+                  >
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Category</Form.Label>
+                  <Form.Select
+                    value={formData.category}
+                    onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                    required
+                  >
+                    <option value="">Select category</option>
+                    {categories.filter(cat => cat !== 'All').map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+            <Form.Group className="mb-3">
+              <Form.Label>Description</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Enter description"
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                required
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Notes</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={2}
+                placeholder="Additional notes (optional)"
+                value={formData.notes}
+                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <div className="d-flex flex-wrap gap-2">
+                  <Badge
+                    key={tag}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Check
+                type="checkbox"
+                label="Recurring Transaction"
+                checked={formData.isRecurring}
+                onChange={(e) => setFormData(prev => ({ ...prev, isRecurring: e.target.checked }))}
+              />
+            </Form.Group>
+            {formData.isRecurring && (
+              <Form.Group className="mb-3">
+                <Form.Label>Frequency</Form.Label>
+                <Form.Select
+                  value={formData.recurringFrequency}
+                  onChange={(e) => setFormData(prev => ({ ...prev, recurringFrequency: e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly' }))}
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                </Form.Select>
+              </Form.Group>
+            )}
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowAddModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleAddTransaction} disabled={isLoading}>
+            {isLoading ? <Spinner animation="border" size="sm" /> : 'Add Transaction'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Edit Transaction Modal */}
+      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Edit Transaction</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Date</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                    required
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Amount</Form.Label>
+                  <Form.Control
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={formData.amount}
+                    onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    required
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Type</Form.Label>
+                  <Form.Select
+                    value={formData.type}
+                    onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as 'income' | 'expense' }))}
+                  >
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Category</Form.Label>
+                  <Form.Select
+                    value={formData.category}
+                    onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                    required
+                  >
+                    <option value="">Select category</option>
+                    {categories.filter(cat => cat !== 'All').map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+            <Form.Group className="mb-3">
+              <Form.Label>Description</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Enter description"
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                required
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Notes</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={2}
+                placeholder="Additional notes (optional)"
+                value={formData.notes}
+                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <div className="d-flex flex-wrap gap-2">
+                  <Badge
+                    key={tag}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Check
+                type="checkbox"
+                label="Recurring Transaction"
+                checked={formData.isRecurring}
+                onChange={(e) => setFormData(prev => ({ ...prev, isRecurring: e.target.checked }))}
+              />
+            </Form.Group>
+            {formData.isRecurring && (
+              <Form.Group className="mb-3">
+                <Form.Label>Frequency</Form.Label>
+                <Form.Select
+                  value={formData.recurringFrequency}
+                  onChange={(e) => setFormData(prev => ({ ...prev, recurringFrequency: e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly' }))}
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                </Form.Select>
+              </Form.Group>
+            )}
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleEditTransaction} disabled={isLoading}>
+            {isLoading ? <Spinner animation="border" size="sm" /> : 'Update Transaction'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </div>
+  );
+};
+
+export default EnhancedTransactionsSection;
