@@ -1,4 +1,4 @@
-# 💰 Finance Dashboard - Enterprise Edition
+#  Finance Dashboard - Enterprise Edition
 
 A comprehensive, enterprise-grade finance dashboard built with React, TypeScript, and Bootstrap. This application provides users with a sophisticated interface to track and understand their financial activity through advanced visualizations, AI-powered insights, predictive analytics, and comprehensive financial management tools.
 
